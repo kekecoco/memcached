@@ -305,6 +305,8 @@ void *extstore_init(char *fn, struct extstore_conf *cf,
     e->maint_thread = calloc(1, sizeof(store_maint_thread));
     e->maint_thread->e = e;
     // FIXME: error handling
+    pthread_mutex_init(&e->maint_thread->mutex, NULL);
+    pthread_cond_init(&e->maint_thread->cond, NULL);
     pthread_create(&thread, NULL, extstore_maint_thread, e->maint_thread);
 
     return (void *)e;
@@ -510,7 +512,7 @@ void extstore_write(void *ptr, obj_io *io) {
 /* engine submit function; takes engine, item_io stack.
  * lock io_thread context and add stack?
  * signal io thread to wake.
- * return sucess.
+ * return success.
  */
 int extstore_submit(void *ptr, obj_io *io) {
     store_engine *e = (store_engine *)ptr;
@@ -603,7 +605,7 @@ void extstore_close_page(void *ptr, unsigned int page_id, uint64_t page_version)
 
 /* Finds an attached wbuf that can satisfy the read.
  * Since wbufs can potentially be flushed to disk out of order, they are only
- * removed as the head of the list successfuly flushes to disk.
+ * removed as the head of the list successfully flushes to disk.
  */
 // call with *p locked
 // FIXME: protect from reading past wbuf

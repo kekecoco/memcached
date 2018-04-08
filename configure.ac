@@ -122,9 +122,33 @@ unsigned long val = SASL_CB_GETCONF;
                      [Set to nonzero if your SASL implementation supports SASL_CB_GETCONF])])
 ])
 
+dnl **********************************************************************
+dnl DETECT_SASL_CB_GETCONFPATH
+dnl
+dnl check if we can use SASL_CB_GETCONFPATH
+dnl **********************************************************************
+AC_DEFUN([AC_C_DETECT_SASL_CB_GETCONFPATH],
+[
+    AC_CACHE_CHECK([for SASL_CB_GETCONFPATH],
+        [ac_cv_c_sasl_cb_getconfpath],
+        [AC_TRY_COMPILE(
+            [
+#include <sasl/sasl.h>
+            ], [
+unsigned long val = SASL_CB_GETCONFPATH;
+            ],
+            [ ac_cv_c_sasl_cb_getconfpath=yes ],
+            [ ac_cv_c_sasl_cb_getconfpath=no ])
+        ])
+    AS_IF([test "$ac_cv_c_sasl_cb_getconfpath" = "yes"],
+          [AC_DEFINE([HAVE_SASL_CB_GETCONFPATH], 1,
+                     [Set to nonzero if your SASL implementation supports SASL_CB_GETCONFPATH])])
+])
+
 AC_CHECK_HEADERS([sasl/sasl.h])
 if test "x$enable_sasl" = "xyes"; then
   AC_C_DETECT_SASL_CB_GETCONF
+  AC_C_DETECT_SASL_CB_GETCONFPATH
   AC_DEFINE([ENABLE_SASL],1,[Set to nonzero if you want to include SASL])
   AC_SEARCH_LIBS([sasl_server_init], [sasl2 sasl], [],
     [
@@ -490,6 +514,8 @@ AC_CHECK_FUNCS(clock_gettime)
 AC_CHECK_FUNCS([accept4], [AC_DEFINE(HAVE_ACCEPT4, 1, [Define to 1 if support accept4])])
 AC_CHECK_FUNCS([getopt_long], [AC_DEFINE(HAVE_GETOPT_LONG, 1, [Define to 1 if support getopt_long])])
 
+dnl Need to disable opt for alignment check. GCC is too clever and turns this
+dnl into wide stores and no cmp under O2.
 AC_DEFUN([AC_C_ALIGNMENT],
 [AC_CACHE_CHECK(for alignment, ac_cv_c_alignment,
 [
@@ -497,6 +523,7 @@ AC_DEFUN([AC_C_ALIGNMENT],
     [AC_LANG_PROGRAM([
 #include <stdlib.h>
 #include <inttypes.h>
+#pragma GCC optimize ("O0")
     ], [
        char *buf = malloc(32);
 
@@ -551,7 +578,8 @@ dnl Check for usage of 64bit atomics
 dnl 32bit systems shouldn't have these.
 have_gcc_64atomics=no
 AC_MSG_CHECKING(for GCC 64bit atomics)
-AC_TRY_LINK([],[
+AC_TRY_LINK([#include <inttypes.h>
+   ],[
   uint64_t a;
   uint64_t b;
   b = __sync_add_and_fetch(&a, 1);

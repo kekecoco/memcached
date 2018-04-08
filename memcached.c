@@ -1686,10 +1686,11 @@ static void process_bin_get_or_touch(conn *c) {
             c->write_and_go = conn_new_cmd;
             /* Remember this command so we can garbage collect it later */
 #ifdef EXTSTORE
-            if ((it->it_flags & ITEM_HDR) == 0) {
-                c->item = it;
-            } else {
+            if ((it->it_flags & ITEM_HDR) != 0 && should_return_value) {
+                // Only have extstore clean if header and returning value.
                 c->item = NULL;
+            } else {
+                c->item = it;
             }
 #else
             c->item = it;
@@ -6156,7 +6157,7 @@ static void clock_handler(const int fd, const short which, void *arg) {
 static void usage(void) {
     printf(PACKAGE " " VERSION "\n");
     printf("-p, --port=<num>          TCP port to listen on (default: 11211)\n"
-           "-U, --udp-port=<num>      UDP port to listen on (default: 11211, 0 is off)\n"
+           "-U, --udp-port=<num>      UDP port to listen on (default: 0, off)\n"
            "-s, --unix-socket=<file>  UNIX socket to listen on (disables network support)\n"
            "-A, --enable-shutdown     enable ascii \"shutdown\" command\n"
            "-a, --unix-mask=<mask>    access mask for UNIX socket, in octal (default: 0700)\n"
@@ -7535,6 +7536,10 @@ int main (int argc, char **argv) {
         if ((pw = getpwnam(username)) == 0) {
             fprintf(stderr, "can't find the user %s to switch to\n", username);
             exit(EX_NOUSER);
+        }
+        if (setgroups(0, NULL) < 0) {
+            fprintf(stderr, "failed to drop supplementary groups\n");
+            exit(EX_OSERR);
         }
         if (setgid(pw->pw_gid) < 0 || setuid(pw->pw_uid) < 0) {
             fprintf(stderr, "failed to assume identity of user %s\n", username);
